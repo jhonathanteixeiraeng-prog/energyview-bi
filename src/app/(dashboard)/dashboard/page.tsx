@@ -6,6 +6,8 @@ import { CostDistributionChart } from "@/components/dashboard/cost-distribution-
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
   // 1. Fetch Summary Statistics
   const totalPotentialSavings = await prisma.auditItem.aggregate({

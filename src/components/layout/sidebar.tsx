@@ -13,7 +13,7 @@ export function Sidebar() {
     { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/clients", icon: Users, label: "Clientes" },
     { href: "/invoices", icon: FileText, label: "Faturas" },
-    { href: "/reports", icon: Zap, label: "Visão ACL" },
+    { href: "/acl", icon: Zap, label: "Visão ACL" },
   ];
 
   return (

@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { AclSimulatorView } from "@/components/acl/acl-simulator-view";
 import { Scale, Zap, Info, Building2 } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export default async function AclPage({ searchParams }: { searchParams: Promise<{ unitId?: string }> }) {
   const resolvedSearchParams = await searchParams;
   
