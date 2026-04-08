@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { InvoiceParserZone } from "@/components/invoices/invoice-parser-zone";
 
-export default async function NewConsumerUnitPage({ params }: { params: { id: string } }) {
+export default async function NewConsumerUnitPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: clientId } = await params;
 
   // Nossa Server Action recebe o FormData submetido pelo componente Client do parser!

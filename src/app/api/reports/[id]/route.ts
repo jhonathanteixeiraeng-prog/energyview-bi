@@ -6,10 +6,10 @@ import React from "react";
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const unitId = params.id;
+    const { id: unitId } = await params;
 
     // 1. Fetch all necessary data
     const unit = await prisma.consumerUnit.findUnique({

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = 'force-dynamic';
 
-export default async function InvoiceDiagnosticPage({ params }: { params: { id: string } }) {
+export default async function InvoiceDiagnosticPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   
   const invoice = await prisma.invoice.findUnique({

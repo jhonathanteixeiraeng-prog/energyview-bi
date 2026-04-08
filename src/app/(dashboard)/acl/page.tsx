@@ -2,14 +2,16 @@ import { prisma } from "@/lib/prisma";
 import { AclSimulatorView } from "@/components/acl/acl-simulator-view";
 import { Scale, Zap, Info, Building2 } from "lucide-react";
 
-export default async function AclPage({ searchParams }: { searchParams: { unitId?: string } }) {
+export default async function AclPage({ searchParams }: { searchParams: Promise<{ unitId?: string }> }) {
+  const resolvedSearchParams = await searchParams;
+  
   // 1. Fetch available units for selection
   const units = await prisma.consumerUnit.findMany({
     where: { supplyGroup: 'GROUP_A' }, // ACL is mainly for Group A
     include: { client: true }
   });
 
-  const selectedUnitId = searchParams.unitId || (units.length > 0 ? units[0].id : null);
+  const selectedUnitId = resolvedSearchParams.unitId || (units.length > 0 ? units[0].id : null);
 
   if (!selectedUnitId) {
     return (

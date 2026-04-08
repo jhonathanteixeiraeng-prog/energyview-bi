@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = 'force-dynamic';
 
-export default async function ConsumerUnitPage({ params }: { params: { id: string, unitId: string } }) {
+export default async function ConsumerUnitPage({ params }: { params: Promise<{ id: string, unitId: string }> }) {
   const { id, unitId } = await params;
   
   const unit = await prisma.consumerUnit.findUnique({
