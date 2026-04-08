@@ -1,0 +1,367 @@
+// Prisma Schema for EnergyView - Energy Invoice Analysis Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// AUTHENTICATION & ORGANIZATION
+// ==========================================
+
+model User {
+  id             String       @id @default(cuid())
+  name           String
+  email          String       @unique
+  password       String
+  role           UserRole     @default(ANALYST)
+  avatarUrl      String?
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  analyses       Analysis[]
+  reports        Report[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([email])
+  @@index([organizationId])
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  ANALYST
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  cnpj      String?  @unique
+  logoUrl   String?
+  plan      PlanType @default(STARTER)
+  users     User[]
+  clients   Client[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum PlanType {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+// ==========================================
+// CLIENTS & CONSUMER UNITS
+// ==========================================
+
+model Client {
+  id             String       @id @default(cuid())
+  name           String
+  cnpj           String?
+  cpf            String?
+  contactName    String?
+  contactEmail   String?
+  contactPhone   String?
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  units          ConsumerUnit[]
+  reports        Report[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([name])
+}
+
+model ConsumerUnit {
+  id                      String          @id @default(cuid())
+  installationNumber      String          // Nº da instalação
+  meterNumber             String?         // Nº do medidor
+  address                 String
+  city                    String?
+  state                   String?
+  distributorName         String          // Nome da distribuidora
+  supplyGroup             SupplyGroup     // Grupo A ou B
+  supplySubgroup          String?         // A1, A2, A3, A3a, A4, AS, B1, B2, B3
+  tariffModality          TariffModality  // Azul, Verde, Convencional, Branca
+  connectionType          ConnectionType  // Monofásica, Bifásica, Trifásica
+  consumptionClass        String?         // Residencial, Comercial, Industrial
+  contractedDemandPeak    Float?          // Demanda contratada Ponta (kW)
+  contractedDemandOffPeak Float?          // Demanda contratada Fora Ponta (kW)
+  clientId                String
+  client                  Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  invoices                Invoice[]
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+
+  @@index([installationNumber])
+  @@index([clientId])
+}
+
+enum SupplyGroup {
+  GROUP_A
+  GROUP_B
+}
+
+enum TariffModality {
+  BLUE
+  GREEN
+  CONVENTIONAL
+  WHITE
+}
+
+enum ConnectionType {
+  SINGLE_PHASE
+  TWO_PHASE
+  THREE_PHASE
+}
+
+// ==========================================
+// INVOICES (FATURAS)
+// ==========================================
+
+model Invoice {
+  id              String        @id @default(cuid())
+  referenceMonth  DateTime      // Mês de referência
+  dueDate         DateTime?     // Data de vencimento
+  totalAmount     Float         // Valor total (R$)
+
+  // Original file
+  originalFileUrl  String       // URL do PDF/imagem
+  originalFileName String
+  fileType         String       // pdf, jpg, png
+
+  // Processing status
+  status            InvoiceStatus @default(PENDING)
+  parsingConfidence Float?       // Confiança do parsing (0-1)
+
+  // === CONSUMPTION (kWh) ===
+  consumptionPeakKwh    Float?  // Consumo Ponta
+  consumptionOffPeakKwh Float?  // Consumo Fora Ponta
+  consumptionTotalKwh   Float?  // Consumo Total
+
+  // === DEMAND (kW) ===
+  measuredDemandPeakKw    Float? // Demanda Medida Ponta
+  measuredDemandOffPeakKw Float? // Demanda Medida Fora Ponta
+  billedDemandPeakKw      Float? // Demanda Faturada Ponta
+  billedDemandOffPeakKw   Float? // Demanda Faturada Fora Ponta
+  demandOveragePeakKw     Float? // Ultrapassagem Ponta
+  demandOverageOffPeakKw  Float? // Ultrapassagem Fora Ponta
+
+  // === REACTIVE ENERGY ===
+  reactiveEnergyPeakKvarh    Float? // Energia Reativa Ponta
+  reactiveEnergyOffPeakKvarh Float? // Energia Reativa Fora Ponta
+  reactiveExcessPeakKvarh    Float? // Excedente Reativo Ponta
+  reactiveExcessOffPeakKvarh Float? // Excedente Reativo Fora Ponta
+  powerFactorPeak            Float? // Fator de Potência Ponta
+  powerFactorOffPeak         Float? // Fator de Potência Fora Ponta
+
+  // === TARIFFS (R$/kWh or R$/kW) ===
+  tariffTePeak        Float?    // TE Ponta
+  tariffTeOffPeak     Float?    // TE Fora Ponta
+  tariffTusdPeak      Float?    // TUSD Ponta
+  tariffTusdOffPeak   Float?    // TUSD Fora Ponta
+  tariffDemandPeak    Float?    // Tarifa Demanda Ponta
+  tariffDemandOffPeak Float?    // Tarifa Demanda Fora Ponta
+
+  // === BILLED AMOUNTS (R$) ===
+  amountConsumptionPeak    Float? // Valor Consumo Ponta
+  amountConsumptionOffPeak Float? // Valor Consumo Fora Ponta
+  amountDemandPeak         Float? // Valor Demanda Ponta
+  amountDemandOffPeak      Float? // Valor Demanda Fora Ponta
+  amountDemandOverage      Float? // Valor Ultrapassagem
+  amountReactiveExcess     Float? // Valor Excedente Reativo
+
+  // === TAXES & CHARGES ===
+  icmsRate             Float?   // Alíquota ICMS (%)
+  icmsAmount           Float?   // Valor ICMS (R$)
+  pisRate              Float?   // Alíquota PIS (%)
+  pisAmount            Float?   // Valor PIS (R$)
+  cofinsRate           Float?   // Alíquota COFINS (%)
+  cofinsAmount         Float?   // Valor COFINS (R$)
+  publicLightingAmount Float?   // CIP/COSIP (R$)
+
+  // === CALCULATED INDICATORS ===
+  averageCostPerKwh Float?      // Custo médio R$/kWh
+  loadFactor        Float?      // Fator de carga
+
+  // Relations
+  consumerUnitId String
+  consumerUnit   ConsumerUnit @relation(fields: [consumerUnitId], references: [id], onDelete: Cascade)
+  auditItems     AuditItem[]
+  analysisId     String?
+  analysis       Analysis?    @relation(fields: [analysisId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([referenceMonth])
+  @@index([consumerUnitId])
+  @@index([status])
+  @@index([analysisId])
+}
+
+enum InvoiceStatus {
+  PENDING
+  PROCESSING
+  PARSED
+  REVIEW
+  VALIDATED
+  ERROR
+}
+
+// ==========================================
+// AUDIT
+// ==========================================
+
+model AuditItem {
+  id                String          @id @default(cuid())
+  invoiceId         String
+  invoice           Invoice         @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  category          AuditCategory
+  severity          AuditSeverity
+  title             String
+  description       String
+  expectedValue     Float?
+  actualValue       Float?
+  differenceValue   Float?
+  differencePercent Float?
+  potentialSavings  Float?          // Economia potencial (R$)
+  recommendation    String?
+  status            AuditItemStatus @default(OPEN)
+  createdAt         DateTime        @default(now())
+
+  @@index([invoiceId])
+  @@index([severity])
+}
+
+enum AuditCategory {
+  DEMAND_BILLING
+  DEMAND_OVERAGE
+  REACTIVE_EXCESS
+  POWER_FACTOR
+  TARIFF_ERROR
+  TAX_ERROR
+  CONSUMPTION_ANOMALY
+  BILLING_DUPLICATE
+  CONTRACT_MISMATCH
+  OTHER
+}
+
+enum AuditSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AuditItemStatus {
+  OPEN
+  CONFIRMED
+  DISMISSED
+  RESOLVED
+}
+
+// ==========================================
+// ANALYSIS & ACL SIMULATION
+// ==========================================
+
+model Analysis {
+  id            String         @id @default(cuid())
+  title         String
+  status        AnalysisStatus @default(IN_PROGRESS)
+  userId        String
+  user          User           @relation(fields: [userId], references: [id])
+  invoices      Invoice[]
+  aclSimulation AclSimulation?
+  reportId      String?
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+enum AnalysisStatus {
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+model AclSimulation {
+  id         String   @id @default(cuid())
+  analysisId String   @unique
+  analysis   Analysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  // Captive scenario (current)
+  captiveAnnualCost  Float  // Custo anual no mercado cativo
+  captiveAverageCost Float  // Custo médio R$/kWh cativo
+
+  // ACL scenario
+  aclEnergyPrice  Float? // Preço da energia no ACL (R$/MWh)
+  aclAnnualCost   Float? // Custo anual estimado no ACL
+  aclAverageCost  Float? // Custo médio R$/kWh ACL
+
+  // Results
+  annualSavings      Float?              // Economia anual estimada
+  savingsPercent     Float?              // Percentual de economia
+  migrationViability MigrationViability?
+  paybackMonths      Int?                // Payback em meses
+
+  // Simulation parameters
+  demandForSimulation      Float? // Demanda usada na simulação
+  consumptionForSimulation Float? // Consumo usado
+
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum MigrationViability {
+  HIGHLY_VIABLE
+  VIABLE
+  MARGINAL
+  NOT_VIABLE
+}
+
+// ==========================================
+// REPORTS
+// ==========================================
+
+model Report {
+  id        String       @id @default(cuid())
+  title     String
+  type      ReportType
+  status    ReportStatus @default(DRAFT)
+  clientId  String
+  client    Client       @relation(fields: [clientId], references: [id])
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+  content   Json?        // Structured report content
+  pdfUrl    String?      // Generated PDF URL
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([clientId])
+  @@index([userId])
+  @@index([type])
+}
+
+enum ReportType {
+  AUDIT
+  ACL_ANALYSIS
+  DIAGNOSTIC
+  COMMERCIAL
+}
+
+enum ReportStatus {
+  DRAFT
+  GENERATED
+  SENT
+}
